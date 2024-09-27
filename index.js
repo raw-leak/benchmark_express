@@ -36,6 +36,8 @@ const httpRequestDurationMicroseconds = new client.Histogram({
 
 client.collectDefaultMetrics({ timeout: 5000 });
 
+
+let count = 0;
 async function bootstrap() {
     // Create a Registry and collect default metrics
 
@@ -65,6 +67,7 @@ async function bootstrap() {
         }
     });
 
+
     // Simulate file upload, data processing, and database interaction
     app.post('/', async (req, res) => {
         try {
@@ -79,8 +82,14 @@ async function bootstrap() {
                 size: fileData.size,
             });
             await fileDoc.save();
+            count++;
 
             const recentFiles = await FileModel.find().sort({ uploadedAt: -1 }).limit(5);
+
+            if (count >= 100) {
+                count = 0;
+                await FileModel.deleteMany({});
+            }
 
             res.status(200).json({
                 message: 'File uploaded successfully',
