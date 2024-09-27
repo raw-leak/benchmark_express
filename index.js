@@ -25,8 +25,7 @@ const app = express();
 
 const httpRequestsTotal = new client.Counter({
     name: 'http_requests_total',
-    help: 'Total number of HTTP requests',
-    labelNames: ['method', 'route', 'status_code'],
+    help: 'Total number of HTTP requests'
 });
 
 client.collectDefaultMetrics({ timeout: 5000 });
@@ -40,12 +39,7 @@ async function bootstrap() {
     app.use((req, res, next) => {
         const now = Date.now();
         res.on('finish', () => {
-            const route = req.route && req.route.path ? req.route.path : req.path; // Ensure req.path is used as fallback
-            httpRequestsTotal.inc({
-                method: req.method,
-                route: route,
-                status_code: res.statusCode
-            });
+            httpRequestsTotal.inc();
             console.log(`HTTP ${req.method} ${route} ${res.statusCode} ${Date.now() - now}ms`);
         });
         next();
