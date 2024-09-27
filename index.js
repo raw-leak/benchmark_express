@@ -9,6 +9,19 @@ function bootstrap() {
     const register = new client.Registry();
     client.collectDefaultMetrics({ register });
 
+    const httpRequestsTotal = new Counter({
+        name: 'http_requests_total',
+        help: 'Total number of HTTP requests',
+        labelNames: ['method', 'handler', 'status']
+    });
+
+    app.use((req, res, next) => {
+        res.on('finish', () => {
+            httpRequestsTotal.labels(req.method, req.route ? req.route.path : req.path, res.statusCode).inc();
+        });
+        next();
+    });
+
     // Expose metrics endpoint
     app.get('/metrics', async (req, res) => {
         res.set('Content-Type', register.contentType);
