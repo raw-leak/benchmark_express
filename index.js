@@ -28,6 +28,12 @@ const httpRequestsTotal = new client.Counter({
     help: 'Total number of HTTP requests'
 });
 
+const httpRequestDurationMicroseconds = new client.Histogram({
+    name: 'http_request_duration_seconds',
+    help: 'Duration of HTTP requests in seconds',
+    buckets: [0.005, 0.01, 0.025, 0.05, 0.1, 0.3, 0.5, 1, 2, 5] // Buckets for response time
+});
+
 client.collectDefaultMetrics({ timeout: 5000 });
 
 async function bootstrap() {
@@ -37,11 +43,14 @@ async function bootstrap() {
     app.use(express.json());
 
     app.use((req, res, next) => {
-        const now = Date.now();
+        const end = httpRequestDurationMicroseconds.startTimer();
+
         res.on('finish', () => {
             const route = req.route && req.route.path ? req.route.path : req.path; // Ensure req.path is used as fallback
             httpRequestsTotal.inc();
-            console.log(`HTTP ${req.method} ${route} ${res.statusCode} ${Date.now() - now}ms`);
+            console.log(`HTTP ${req.method} ${route} ${res.statusCode} ${end()}s`);
+
+            end(); // Stop the timer and record
         });
         next();
     });
