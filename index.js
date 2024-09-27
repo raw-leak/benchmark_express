@@ -40,7 +40,7 @@ async function bootstrap() {
         const now = Date.now();
         res.on('finish', () => {
             httpRequestsTotal.inc();
-            console.log(`HTTP ${req.method} ${route} ${res.statusCode} ${Date.now() - now}ms`);
+            console.log(`HTTP ${req.method} ${req.route.path} ${res.statusCode} ${Date.now() - now}ms`);
         });
         next();
     });
