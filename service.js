@@ -1,3 +1,4 @@
 export async function uploadFiles() {
-    return `${Date.now()}`
+    const now = Date.now();
+    return { filename: `now`, filesize: now }
 }

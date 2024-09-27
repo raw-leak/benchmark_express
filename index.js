@@ -1,26 +1,49 @@
 import express from 'express';
 import client from 'prom-client';
+import mongoose from 'mongoose';
 import { uploadFiles } from './service.js';
 
-const app = express();
 
-function bootstrap() {
-    // Create a Registry and collect default metrics
-    const register = new client.Registry();
-    client.collectDefaultMetrics({ register });
-
-    // Define the HTTP requests counter
-    const httpRequestsTotal = new client.Counter({
-        name: 'http_requests_total',
-        help: 'Total number of HTTP requests',
-        labelNames: ['method', 'handler', 'status']
+// Connect to MongoDB
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/test')
+    .then(() => console.log('MongoDB connected'))
+    .catch(err => {
+        console.error('MongoDB connection error:', err)
+        process.exit(1);
     });
 
+// Define a simple schema for a collection
+const fileSchema = new mongoose.Schema({
+    filename: String,
+    size: Number,
+    uploadedAt: { type: Date, default: Date.now },
+});
+
+const FileModel = mongoose.model('File', fileSchema);
+const app = express();
+
+// const register = new client.Registry();
+client.collectDefaultMetrics({ timeout: 5000 });
+
+// Move counter definition here to ensure it is only created once
+const httpRequestsTotal = new client.Counter({
+    name: 'http_requests_total',
+    help: 'Total number of HTTP requests',
+    labelNames: ['method', 'handler', 'status']
+});
+
+async function bootstrap() {
+    // Create a Registry and collect default metrics
+
     // Middleware to count requests
+    app.use(express.json());
+
     app.use((req, res, next) => {
+        const now = Date.now();
         res.on('finish', () => {
             const route = req.route && req.route.path ? req.route.path : req.path; // Ensure req.path is used as fallback
             httpRequestsTotal.labels(req.method, route, res.statusCode).inc();
+            console.log(`HTTP ${req.method} ${route} ${res.statusCode} ${Date.now() - now}ms`);
         });
         next();
     });
@@ -35,17 +58,33 @@ function bootstrap() {
         }
     });
 
-    // File upload endpoint
+    // Simulate file upload, data processing, and database interaction
     app.post('/', async (req, res) => {
         try {
-            const id = await uploadFiles(req.body);
-            res.status(200).json({ id });
+            const fileData = { filename: `file-${Date.now()}`, size: Date.now() };
+
+            if (!fileData.filename || !fileData.size) {
+                throw new Error('Invalid file data');
+            }
+
+            const fileDoc = new FileModel({
+                filename: fileData.filename,
+                size: fileData.size,
+            });
+            await fileDoc.save();
+
+            const recentFiles = await FileModel.find().sort({ uploadedAt: -1 }).limit(5);
+
+            res.status(200).json({
+                message: 'File uploaded successfully',
+                fileId: fileDoc._id.toString(),
+                recentFiles: recentFiles
+            });
         } catch (err) {
-            res.status(500).json({ error: 'Failed to upload file' });
+            res.status(500).json({ error: err.message });
         }
     });
 
-    // Start server
     const PORT = process.env.PORT || 8080;
     app.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}`);
