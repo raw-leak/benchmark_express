@@ -39,8 +39,9 @@ async function bootstrap() {
     app.use((req, res, next) => {
         const now = Date.now();
         res.on('finish', () => {
+            const route = req.route && req.route.path ? req.route.path : req.path; // Ensure req.path is used as fallback
             httpRequestsTotal.inc();
-            console.log(`HTTP ${req.method} ${req.route.path} ${res.statusCode} ${Date.now() - now}ms`);
+            console.log(`HTTP ${req.method} ${route} ${res.statusCode} ${Date.now() - now}ms`);
         });
         next();
     });
