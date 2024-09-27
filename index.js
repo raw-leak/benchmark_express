@@ -2,7 +2,7 @@ import express from 'express';
 import client from 'prom-client';
 import { uploadFiles } from './service.js';
 const app = express();
-
+const Counter = client.Counter;
 
 function bootstrap() {
     // Create a Registry and collect default metrics
