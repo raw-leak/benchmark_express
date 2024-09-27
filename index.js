@@ -1,7 +1,6 @@
 import express from 'express';
 import client from 'prom-client';
 import mongoose from 'mongoose';
-import { uploadFiles } from './service.js';
 
 
 // Connect to MongoDB
@@ -22,15 +21,15 @@ const fileSchema = new mongoose.Schema({
 const FileModel = mongoose.model('File', fileSchema);
 const app = express();
 
-// const register = new client.Registry();
-client.collectDefaultMetrics({ timeout: 5000 });
-
 // Move counter definition here to ensure it is only created once
+
 const httpRequestsTotal = new client.Counter({
     name: 'http_requests_total',
     help: 'Total number of HTTP requests',
-    labelNames: ['method', 'handler', 'status']
+    labelNames: ['method', 'route', 'status_code'],
 });
+
+client.collectDefaultMetrics({ timeout: 5000 });
 
 async function bootstrap() {
     // Create a Registry and collect default metrics
@@ -42,7 +41,11 @@ async function bootstrap() {
         const now = Date.now();
         res.on('finish', () => {
             const route = req.route && req.route.path ? req.route.path : req.path; // Ensure req.path is used as fallback
-            httpRequestsTotal.labels(req.method, route, res.statusCode).inc();
+            httpRequestsTotal.inc({
+                method: req.method,
+                route: route,
+                status_code: res.statusCode
+            });
             console.log(`HTTP ${req.method} ${route} ${res.statusCode} ${Date.now() - now}ms`);
         });
         next();
@@ -51,8 +54,8 @@ async function bootstrap() {
     // Expose metrics endpoint
     app.get('/metrics', async (req, res) => {
         try {
-            res.set('Content-Type', register.contentType);
-            res.end(await register.metrics());
+            res.set('Content-Type', client.register.contentType);
+            res.end(await client.register.metrics());
         } catch (err) {
             res.status(500).end(err);
         }
